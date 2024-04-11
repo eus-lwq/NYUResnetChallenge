@@ -5,6 +5,19 @@ NYUResnetChallenge
 - [Overleaf doc] https://www.overleaf.com/project/660af2c2717a06ecc69327f9
 - [google doc] https://docs.google.com/document/d/1fwO-1mw84OI6Rt7TnOZ2jH_78WhFtmXr9VgSUBSXC0I/edit?usp=sharing
 
+## Model
+
+Trained and modified ResNet Architecture on image classification CIFAR 10 Dataset. The model architecture is based on the paper "Deep Residual Learning for Image Recognition" by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun ([arXiv:1512.03385](https://arxiv.org/abs/1512.03385)).
+
+## Data
+
+The script is designed to work with the CIFAR-10 dataset. The dataset is divided into labeled and unlabeled data. 
+
+## Results
+
+The script logs the training progress and results to Weights & Biases (wandb). You can view the results on the [wandb dashboard](https://wandb.ai/your-username/your-project-name).
+
+
 ## Environment Setting
 ### Set Environment with conda
 ```shell
