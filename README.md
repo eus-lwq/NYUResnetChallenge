@@ -20,7 +20,11 @@ pip install -r requirements.txt
 ## Test model with Tap Args
 ```shell
 python trainer.py --num_blocks <str list> --n_epochs <Number of Epochs> --model_arch <Model Architecture> --in_planes <Number of Planes>
-# e.g. python trainer.py --lr 0.01 --momentum 0.9 --weight_decay 0.0001 --n_epochs 100 --batch_size 20 --num_workers 4 --valid_size 0.2 --optimizer 'SGD' --self_supervise --test_data_path '/path/to/test_data' --test_nolabel_path '/path/to/test_nolabel' --data_dir '/path/to/data' --model_arch 'custom' --stride 1 --in_planes 64 --num_channels '64,128,256,512' --filter_sizes '3,3,3,3' --num_blocks '2,2,2,2'
+
+# e.g. python trainer.py --lr 0.01 --momentum 0.9 --weight_decay 0.0001 --n_epochs 100 --batch_size 20
+# --num_workers 4 --valid_size 0.2 --optimizer 'SGD' --self_supervise --test_data_path '/path/to/test_data'
+# --test_nolabel_path '/path/to/test_nolabel' --data_dir '/path/to/data' --model_arch 'custom' --stride 1
+# --in_planes 64 --num_channels '64,128,256,512' --filter_sizes '3,3,3,3' --num_blocks '2,2,2,2'
 ```
 
 ## Command-line Arguments
@@ -44,6 +48,11 @@ python trainer.py --num_blocks <str list> --n_epochs <Number of Epochs> --model_
 - `--num_channels NUM_CHANNELS`: Specify the number of channels for each block in the network.
 - `--filter_sizes FILTER_SIZES`: Set the filter sizes for each block in the network.
 - `--num_blocks NUM_BLOCKS`: Determine the number of blocks for the custom network architecture.
+
+## Collaborators
+- Tyler Li w.li@nyu.edu
+- Yihao Wang yihao.w@nyu.edu
+- Jin Qin jq2325@nyu.edu
 
 ## References
 https://colab.research.google.com/drive/1Jwgn8r6TrNPgZh5uX8xMSCaLzhlsHHRx
