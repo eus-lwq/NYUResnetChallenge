@@ -21,43 +21,28 @@ https://github.com/kuangliu/pytorch-cifar?tab=readme-ov-file
 """
 
 # Commented out IPython magic to ensure Python compatibility.
-import pickle
+
+import csv
+import os
+
+import numpy as np
 import torch
+import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.init as init
-import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
-from torch.utils.data.sampler import SubsetRandomSampler
-from torchvision import datasets
-from torchvision.datasets.utils import download_url
-from torchvision.datasets import ImageFolder
-from torch.utils.data import DataLoader
-from torch.utils.data import Dataset
-import torchvision.transforms as tt
-from torch.utils.data import random_split
-from torchvision.utils import make_grid
+import wandb
 # from pytorch_model_summary import summary
 from tap import Tap
-from ast import literal_eval
-import wandb
-import matplotlib.pyplot as plt
-import torchvision
-import torchvision.transforms as transforms
-import numpy as np
-import os
-import argparse
-import csv
-import sys
-import time
-import math
-import shutil
-import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
+
 # from PIL import Image
 # %matplotlib inline
-from data_loader import load_cifar_batch, load_cifar_test_batch, load_cifar_test_nolabels, CIFAR10Dataset
+from data_loader import (CIFAR10Dataset, load_cifar_batch,
+                         load_cifar_test_batch, load_cifar_test_nolabels)
 from utils import count_all_parameters, count_parameters
+
 
 ##################### Args #######################
 class ArgsParser(Tap):
@@ -67,7 +52,6 @@ class ArgsParser(Tap):
     weight_decay: float = 0.0001
     n_epochs: int = 100
     start_epoch: int = 0
-    best_acc: float = 0
     batch_size: int = 20
     num_workers: int = 0
     valid_size: float = 0.2
@@ -96,16 +80,17 @@ class ArgsParser(Tap):
         self.filter_sizes = list(map(int, self.filter_sizes.split(',')))
 
 args = ArgsParser().parse_args() # Parse the arguments
+
 def get_resnet_model(arch: str):
+    from resnet import BasicBlock, ResNet
     if arch == 'resnet18':
-        model = ResNet18()
+        return ResNet(BasicBlock, [2, 2, 2, 2])
     elif arch == 'resnet34':
-        model = ResNet34()
+        return ResNet(BasicBlock, [3, 4, 6, 3])
     elif arch == 'custom':
-        model = ResNet_custom()
+        return ResNet(BasicBlock, args.num_blocks, args.num_channels)
     else:
         raise ValueError(f'Unknown architecture: {arch}')
-    return model
 
 def get_optimizer(optimizer:str):
     # Choose the optimizer based on the optimizer argument
@@ -116,8 +101,8 @@ def get_optimizer(optimizer:str):
     else:
         raise ValueError(f'Unsupported optimizer: {optimizer}')
 
-def initialize_wandb(args):
-    wandb.init(project='NYUcifarChallenge', entity='eustinalwq')
+def initialize_wandb(args: ArgsParser):
+    wandb.init(project='NYUcifarChallenge', entity='eustinalwq', config=args.as_dict())
     wandb.config = {
         "learning_rate": args.lr,
         "epochs": args.n_epochs,
@@ -137,102 +122,6 @@ def check_cuda():
         print('CUDA is available!  Training on GPU')
         device = torch.device("cuda")
     return train_on_gpu, device
-
-class BasicBlock(nn.Module):
-    expansion = 1
-    def __init__(self, in_planes, planes, stride=args.stride):
-        super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(
-            in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
-
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
-
-    def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
-
-class Bottleneck(nn.Module):
-    expansion = 4
-
-    def __init__(self, in_planes, planes, stride=args.stride):
-        super(Bottleneck, self).__init__()
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               stride=stride, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion *
-                               planes, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(self.expansion*planes)
-
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
-
-    def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = F.relu(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
-
-class ResNet(nn.Module):
-    def __init__(self, block, num_blocks=args.num_blocks, num_classes=10):
-        super(ResNet, self).__init__()
-        print("args.num_blocks in resnet",num_blocks)
-        self.in_planes = args.in_planes
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3,
-                            stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.layer1 = self._make_layer(block, args.num_channels[0], num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, args.num_channels[1], num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, args.num_channels[2], num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, args.num_channels[3], num_blocks[3], stride=2)
-        self.linear = nn.Linear(512*block.expansion, num_classes)
-
-    def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
-        layers = []
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, stride))
-            self.in_planes = planes * block.expansion
-        return nn.Sequential(*layers)
-
-    def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-        out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
-    
-def ResNet_custom():
-    return ResNet(BasicBlock, args.num_blocks)
-def ResNet18():
-    return ResNet(BasicBlock, [2, 2, 2, 2])
-def ResNet34():
-    return ResNet(BasicBlock, [3, 4, 6, 3])
 
 def trainer(args, train_on_gpu, train_loader, valid_loader, net, criterion, optimizer, scheduler):
     """### Training Start"""
@@ -496,7 +385,6 @@ classes = ['airplane', 'automobile', 'bird', 'cat', 'deer','dog', 'frog', 'horse
 ##################### Model Define #################
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("device:",device)
-best_acc = args.best_acc  # best test accuracy
 start_epoch = args.start_epoch  # start from epoch 0 or last checkpoint epoch
 # epoch = 200
 # Model
