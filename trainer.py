@@ -29,6 +29,7 @@ import torch.nn.init as init
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
+from torchvision.transforms import v2, InterpolationMode
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision import datasets
 from torchvision.datasets.utils import download_url
@@ -467,23 +468,27 @@ assert min(valid_idx) >= 0 and max(valid_idx) < 10000, "Valid indices are out of
 # define samplers for obtaining training and validation batches
 train_sampler = SubsetRandomSampler(train_idx)
 valid_sampler = SubsetRandomSampler(valid_idx)
+
 # Define transforms
-transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=0),
-    transforms.resize(32),
-    transforms.CenterCrop(28),
-    transforms.resize(32),
-    transforms.RandomHorizontalFlip(),
-    # transforms.RandomCrop(32, padding=4),
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1), # new aug
-    transforms.RandomRotation(degrees=15),# new aug
-    transforms.ToTensor(), 
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+transforms  = v2.Compose([
+    v2.RandomResizedCrop(32, scale=(0.85, 1.0), interpolation=InterpolationMode.BICUBIC),
+    v2.RandomApply(
+        nn.ModuleList([
+            v2.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1)
+        ]),
+        p=0.3
+    ),
+    v2.RandomAutocontrast(p=0.2),
+    v2.RandomGrayscale(p=0.2),
+    v2.RandomHorizontalFlip(p=0.5),
+    v2.Compose([v2.ToImage(), v2.ToDtype(torch.float32, scale=True)]),
+    v2.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 transform_test = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
+
 # Create dataset objects
 train_dataset = CIFAR10Dataset(train_data, train_labels, transform=transform_train)
 valid_dataset = CIFAR10Dataset(train_data[valid_idx], train_labels[valid_idx], transform=transform_test)
