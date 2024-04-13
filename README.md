@@ -67,7 +67,12 @@ python trainer.py --num_blocks <str list> --n_epochs <Number of Epochs> --model_
 - Yihao Wang yihao.w@nyu.edu
 - Jin Qin jq2325@nyu.edu
 
+## Acknowledgement
+This project is done with ChatGPT and Github Copilot
+
 ## References
+https://github.com/pytorch/vision/blob/5181a854d8b127cf465cd22a67c1b5aaf6ccae05/torchvision/models/resnet.py
+
 https://colab.research.google.com/drive/1Jwgn8r6TrNPgZh5uX8xMSCaLzhlsHHRx
 
 https://colab.research.google.com/github/Rakshit-Shetty/Resnet-Implementation/blob/master/ResNet_Implementation_on_CIFAR10.ipynb
@@ -76,6 +81,7 @@ https://github.com/kuangliu/pytorch-cifar?tab=readme-ov-file
 
 [1] Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun
     Deep Residual Learning for Image Recognition. arXiv:1512.03385
+
 
 Dataset: [CIFAR 10] https://www.cs.toronto.edu/~kriz/cifar.html
 ```bibtex
