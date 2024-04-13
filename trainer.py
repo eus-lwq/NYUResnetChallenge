@@ -126,6 +126,70 @@ def check_cuda():
         device = torch.device("cuda")
     return train_on_gpu, device
 
+# def trainer(args, train_on_gpu, train_loader, valid_loader, net, criterion, optimizer, scheduler):
+#     """### Training Start"""
+#     # number of epochs to train the model
+#     n_epochs = args.n_epochs
+#     valid_loss_min = np.Inf # track change in validation loss
+#     train_losses = []
+#     valid_losses = []
+
+#     for epoch in range(1, n_epochs+1):
+#         # keep track of training and validation loss
+#         train_loss = 0.0
+#         valid_loss = 0.0
+#         ###################
+#         # train the model #
+#         ###################
+#         net.train()
+#         for batch_idx, (data, target) in enumerate(train_loader):
+#             if train_on_gpu:
+#                 data, target = data.cuda(), target.cuda()
+#             optimizer.zero_grad()
+#             output = net(data)
+#             loss = criterion(output, target)
+#             loss.backward()
+#             optimizer.step()
+#             train_loss += loss.item()*data.size(0)
+#             wandb.log({"train_loss": loss.item()})
+#         ######################
+#         # validate the model #
+#         ######################
+#         net.eval()
+#         for batch_idx, (data, target) in enumerate(valid_loader):
+#             if train_on_gpu:
+#               data, target = data.cuda(), target.cuda()
+#             output = net(data)
+#             loss = criterion(output, target)
+#             valid_loss += loss.item()*data.size(0)
+#             wandb.log({"valid_loss": loss.item()})
+#         # calculate average losses
+#         train_loss = train_loss/len(train_loader.sampler)
+#         valid_loss = valid_loss/len(valid_loader.sampler)
+#         train_losses.append(train_loss)
+#         valid_losses.append(valid_loss)
+#         # Update learning rate with scheduler
+#         scheduler.step()
+#         # Optional: Log learning rate to wandb or print it out
+#         current_lr = scheduler.get_last_lr()[0]
+#         print(f"Epoch {epoch}: Current learning rate: {current_lr}")
+#         wandb.log({'epoch': epoch, 'lr': current_lr})
+
+#         # print training/validation statistics
+#         print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f}'.format(
+#         epoch, train_loss, valid_loss))
+
+#     # save model if validation loss has decreased
+#         if valid_loss <= valid_loss_min:
+#             print('Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...'.format(
+#         valid_loss_min,
+#         valid_loss))
+#             torch.save(net.state_dict(), 'ResNet18.pt')
+#             wandb.save('ResNet18.pt')
+#             valid_loss_min = valid_loss
+
+#     net.load_state_dict(torch.load('ResNet18.pt'))
+
 def trainer(args, train_on_gpu, train_loader, valid_loader, net, criterion, optimizer, scheduler):
     """### Training Start"""
     # number of epochs to train the model
@@ -138,6 +202,8 @@ def trainer(args, train_on_gpu, train_loader, valid_loader, net, criterion, opti
         # keep track of training and validation loss
         train_loss = 0.0
         valid_loss = 0.0
+        correct = 0
+        total = 0
         ###################
         # train the model #
         ###################
@@ -151,18 +217,30 @@ def trainer(args, train_on_gpu, train_loader, valid_loader, net, criterion, opti
             loss.backward()
             optimizer.step()
             train_loss += loss.item()*data.size(0)
+            _, predicted = torch.max(output.data, 1)
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
             wandb.log({"train_loss": loss.item()})
+        train_acc = 100 * correct / total
+        wandb.log({"train_acc": train_acc})
         ######################
         # validate the model #
         ######################
         net.eval()
+        correct = 0
+        total = 0
         for batch_idx, (data, target) in enumerate(valid_loader):
             if train_on_gpu:
               data, target = data.cuda(), target.cuda()
             output = net(data)
             loss = criterion(output, target)
             valid_loss += loss.item()*data.size(0)
+            _, predicted = torch.max(output.data, 1)
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
             wandb.log({"valid_loss": loss.item()})
+        valid_acc = 100 * correct / total
+        wandb.log({"valid_acc": valid_acc})
         # calculate average losses
         train_loss = train_loss/len(train_loader.sampler)
         valid_loss = valid_loss/len(valid_loader.sampler)
@@ -189,6 +267,7 @@ def trainer(args, train_on_gpu, train_loader, valid_loader, net, criterion, opti
             valid_loss_min = valid_loss
 
     net.load_state_dict(torch.load('ResNet18.pt'))
+
 
 def tester_nolabel(args, train_on_gpu, num_workers, batch_size, transform_test, net):
     """
@@ -410,6 +489,7 @@ if device == 'cuda':
 criterion = nn.CrossEntropyLoss()
 optimizer = get_optimizer(args.optimizer)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.n_epochs)
+
 trainer(args, train_on_gpu, train_loader, valid_loader, net, criterion, optimizer, scheduler)
 if args.self_supervise: # if self supervised learning is enabled then run this block
     self_supervise_learning(args, train_on_gpu, num_workers, batch_size, train_sampler, transform_train, transform_test, train_dataset, valid_loader, net, criterion, optimizer, scheduler)
